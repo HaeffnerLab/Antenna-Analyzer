@@ -252,6 +252,7 @@ class Ui_Form(QtGui.QWidget):
 
             # Find the resonance frequency
             minGamma = min(dataGamma)
+            maxGamma=max(dataGamma)
             resonanceIndex = dataGamma.index(minGamma)
             resonanceFreq = dataFreq[resonanceIndex]
             # Find the quality factor by finding the freq just outside
@@ -262,12 +263,12 @@ class Ui_Form(QtGui.QWidget):
             lowF = start
             # Find the highest freq of the bandwidth
             for k in range(resonanceIndex, steps):
-                if (dataGamma[k] > 100 - float(100-minGamma)/2):
+                if (dataGamma[k] > maxGamma - float(maxGamma-minGamma)/2):
                     highF = dataFreq[k]
                     break
             # Find the lowest freq in the bandwidth
             for k in range(resonanceIndex, 0, -1):
-                if (dataGamma[k] > 100 - float(100-minGamma)/2):
+                if (dataGamma[k] > maxGamma - float(maxGamma-minGamma)/2):
                     lowF = dataFreq[k]
                     break
             if (highF == lowF):
