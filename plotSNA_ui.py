@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'plotSNA_1.ui'
+# Form implementation generated from reading ui file 'plotSNA.ui'
 #
 # Created: Mon Apr 20 18:06:48 2015
 #      by: PyQt4 UI code generator 4.11.3
-
+#      by: Silje Skeide Fuglerud
 
 from PyQt4 import QtCore, QtGui
 import sys, serial, time
@@ -37,8 +37,9 @@ class Ui_Form(QtGui.QWidget):
         self.txtfilename=""
         self.txt=False
         self.setupUi(self)
-        self.change= False
-
+        self.start=1
+        self.stop=2
+        self.steps=50
         # Connect with arduino
         self.ser = serial.Serial("COM3", 9600, timeout = 1)
 
@@ -105,7 +106,7 @@ class Ui_Form(QtGui.QWidget):
         #Create a spinbox with step 50
         self.spinBox_2 = QtGui.QSpinBox(Form)
         self.spinBox_2.setObjectName(_fromUtf8("spinBox_2"))
-        self.spinBox_2.setRange(50, 1000)
+        self.spinBox_2.setRange(50, 500)
         self.spinBox_2.setSingleStep(50)
         self.horizontalLayout_11.addWidget(self.spinBox_2)            
         #More space
@@ -164,13 +165,6 @@ class Ui_Form(QtGui.QWidget):
         self.label_5.setText(_translate("Form", "MHz", None))
         self.label_6.setText(_translate("Form", "MHz", None))
 
-    #self.horizontalSlider_3.connect(slider, QtCore.SIGNAL('valueChanged(int)'), getValue) 
-    @pyqtSlot()
-    def something_pressed(self):
-        self.change=True
-        time.sleep(.1)
-        self.setArguments()
-
     @pyqtSlot()
     def catch_val_start(self):
         val = self.spinBox_1.value()
@@ -188,32 +182,9 @@ class Ui_Form(QtGui.QWidget):
             #self.label_5.setText(_translate("Form", str(val)+" MHz", None))
    
 
-    def run(self, start, stop, steps):
-        self.change=False
-        ax=self.figure.add_subplot(111)
-
-        ax.hold(False)
-        line, = ax.plot([], [], lw=2)
-        #x=np.linspace(0,10, num=40)
-        #ax.plot(x,np.sin(x))
-
-        ax.set_xlim(start,stop)
-        ax.set_ylim(0,125)
-        ax.set_xlabel('Frequency (MHz)')
-        ax.set_ylabel('Reflected Power (%)')
-        ax.grid()
-
-        # Resonance stands for the resonance frequency
-        resonance_text = ax.text(0.02, 0.95, ' ', transform = ax.transAxes)
-        # qFactor stands for Quality factor: Q = f/df where f is the resonance freq
-        # and df is the half-power bandwidth
-        qFactor_text = ax.text(0.02,0.90, ' ', transform = ax.transAxes)
-        # Gamma in this context means the reflected power
-        gamma_text = ax.text(0.02, 0.85, ' ', transform = ax.transAxes)
-
+    def run(self, line, resonance_text,qFactor_text,gamma_text):
         def init():
             line.set_data([], [])
-            #time.sleep(.1)
             return line, resonance_text, qFactor_text, gamma_text
         
         # animation function.  This is called sequentially
@@ -228,12 +199,11 @@ class Ui_Form(QtGui.QWidget):
             if self.txt:
                 txtfile= open(self.txtfilename, 'a')                    
 
-            for i in range(steps + 1):
+            for i in range(self.steps + 1):
                 inputStr = self.ser.readline()
-                #print(inputStr, len(inputStr))
-                time.sleep(.005) # Delay for one hundred of a second
+                time.sleep(.005) # Delay
                 
-                # See arduino file - SNA - for more info
+                # See arduino file - SNA.ino - for more info
                 nspaces=inputStr.count(" ")
                 if nspaces<1:
                     print("Not enough data")
@@ -249,7 +219,6 @@ class Ui_Form(QtGui.QWidget):
                 #dataFwd.append(float(strValues[2]))
                 #dataRev.append(float(strValues[3]))
 
-
             # Find the resonance frequency
             minGamma = min(dataGamma)
             maxGamma=max(dataGamma)
@@ -259,10 +228,10 @@ class Ui_Form(QtGui.QWidget):
             # the half-max bandwidth (1/2 max power)
             # When we can't find the freq outside the bandwidth
             # we use
-            highF = stop
-            lowF = start
+            highF = self.stop
+            lowF = self.start
             # Find the highest freq of the bandwidth
-            for k in range(resonanceIndex, steps):
+            for k in range(resonanceIndex, self.steps):
                 if (dataGamma[k] > maxGamma - float(maxGamma-minGamma)/2):
                     highF = dataFreq[k]
                     break
@@ -285,36 +254,32 @@ class Ui_Form(QtGui.QWidget):
                 print "Data saved as ", self.txtfilename
                 txtfile.close()
                 self.txt=False
-            if self.change:
-               rep=False
-               self.change=False
 
             return line, resonance_text, qFactor_text, gamma_text
         
-        rep=True
-        anim=animation.FuncAnimation(self.figure, update, init_func=init,fargs=None, blit=False, repeat=rep)                                
+        anim=animation.FuncAnimation(self.figure, update, init_func=init,fargs=None, blit=False, repeat=True)                     
         self.canvas.draw()
         return anim
 
     @pyqtSlot()
     def setArguments(self):
-        self.change=True
-        start=self.spinBox_1.value()
-        stop=self.spinBox_3.value()
-        steps=self.spinBox_2.value()
+        time.sleep(.1)
+        self.start=self.spinBox_1.value()
+        self.stop=self.spinBox_3.value()
+        self.steps=self.spinBox_2.value()
 
-        for i in range(len(str(start))):
-            self.ser.write(str(start)[i])
+        for i in range(len(str(self.start))):
+            self.ser.write(str(self.start)[i])
         # Tell arduino that those previous numbers are for the starting frequency
         self.ser.write('A')
 
-        for i in range(len(str(stop))):
-            self.ser.write(str(stop)[i])
+        for i in range(len(str(self.stop))):
+            self.ser.write(str(self.stop)[i])
         # Tell arduino that those previous numbers are for the stopping frequency
         self.ser.write('B')
         
-        for i in range(len(str(steps))):
-            self.ser.write(str(steps)[i])
+        for i in range(len(str(self.steps))):
+            self.ser.write(str(self.steps)[i])
         # Tell arduino that those previous numbers are for the number of steps
         self.ser.write('N')
 
@@ -323,9 +288,28 @@ class Ui_Form(QtGui.QWidget):
             print data.rstrip('\n') #strip out the new lines for now
             #(better to do .read() in the long run for this reason 
         #ser.write('s')
-        print "start:", start, " stop:", stop, " steps:", steps
+        print "start:", self.start, " stop:", self.stop, " steps:", self.steps
         #time.sleep(.5)
-        anim=self.run(start, stop, steps)
+        self.ax=self.figure.add_subplot(111)
+
+        self.ax.hold(False)
+        line, = self.ax.plot([], [], lw=2)
+
+        self.ax.set_xlim(self.start,self.stop)
+        self.ax.set_ylim(0,125)
+        self.ax.set_xlabel('Frequency (MHz)')
+        self.ax.set_ylabel('Reflected Power (%)')
+        self.ax.grid()
+
+        # Resonance stands for the resonance frequency
+        resonance_text = self.ax.text(0.02, 0.95, ' ', transform = self.ax.transAxes)
+        # qFactor stands for Quality factor: Q = f/df where f is the resonance freq
+        # and df is the half-power bandwidth
+        qFactor_text = self.ax.text(0.02,0.90, ' ', transform = self.ax.transAxes)
+        # Gamma in this context means the reflected power
+        gamma_text = self.ax.text(0.02, 0.85, ' ', transform = self.ax.transAxes)
+        #self.ser.flushInput()
+        anim=self.run(line, resonance_text,qFactor_text,gamma_text)
 
     @pyqtSlot()
     def closeEvent(self, event): 
@@ -348,8 +332,7 @@ class Ui_Form(QtGui.QWidget):
         print "Figure saved as ", self.filename
 
     @pyqtSlot()
-    def savedfunc(self):
-        
+    def savedfunc(self):    
         self.txtfilename = QtGui.QFileDialog.getSaveFileName(self, 'Save File')
         if not self.txtfilename.endsWith('.txt'):
             self.txtfilename+='.txt'
